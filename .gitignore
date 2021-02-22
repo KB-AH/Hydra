@@ -1,3 +1,13 @@
+# IDE folders
+.pio
+.vscode
+
+# Build files for stm
+*.s
+*.ld
+*.crf
+
+# Below is generated content
 # Prerequisites
 *.d
 
