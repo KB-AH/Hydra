@@ -43,6 +43,7 @@
 
 #include "stm32F302_nucleo_ihm07m1.h"
 #include "MC_SixStep_param.h"
+#include "stm32_hal_legacy.h"
 
 #include "math.h"
 #include "stdlib.h"
