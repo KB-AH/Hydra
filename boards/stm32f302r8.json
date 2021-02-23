@@ -1,0 +1,37 @@
+{
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m4",
+    "extra_flags": "-DSTM32F302x8 -DSTM32F3xx",
+    "f_cpu": "72000000L",
+    "mcu": "stm32f302R8",
+    "product_line": "STM32F302xE",
+    "variant": "F302R8"
+  },
+  "debug": {
+    "jlink_device": "STM32f302R8",
+    "openocd_target": "STM32f3x",
+    "svd_path": "STM32F302x.svd"
+  },
+  "frameworks": [
+    "arduino",
+    "cmsis",
+    "stm32cube",
+    "libopencm3"
+  ],
+  "name": "STM32F302R8",
+  "upload": {
+    "maximum_ram_size": 16384,
+    "maximum_size": 65536,
+    "protocol": "serial",
+    "protocols": [
+      "blackmagic",
+      "dfu",
+      "jlink",
+      "serial",
+      "stlink"
+    ]
+  },
+  "url": "https://www.st.com/en/microcontrollers-microprocessors/stm32f302r8.html",
+  "vendor": "Generic"
+}
