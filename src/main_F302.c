@@ -161,7 +161,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 				uint32_t t1 = HAL_GetTick();
 				processSet(&anal, t1 - t0);
 				t0 = t1;
-				HAL_UART_Transmit(&huart3, (uint8_t*)huart2buffer, sprintf(huart2buffer, "filter  = %d\n", getScoreSquare(&anal)), 20);
+				HAL_UART_Transmit(&huart3, (uint8_t*)huart2buffer, sprintf(huart2buffer, "filter  = %f\n", getScoreSquare(&anal)), 20);
 			}
   /* USER CODE END WHILE */
 
