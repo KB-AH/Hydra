@@ -1,6 +1,7 @@
 # IDE folders
 .pio
 .vscode
+*.code-workspace
 
 # Build files for stm
 *.s
