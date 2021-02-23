@@ -3,15 +3,17 @@
 #ifndef ONE_WIRE_H
 #define ONE_WIRE_H
 
+#define DS28E18_PORT GPIOC
+#define DS28E18_PIN GPIO_PIN_2
+#define PullUp_Pin GPIO_PIN_1
 
 #include "main_F302.h"
-#include "stm32f3xx_hal.h"
 
 
 //Functions Declarations
 void Set_Pin_Output(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
 void Set_Pin_Input(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin);
-void us_delay(uint16_t);
+//void us_delay(uint16_t);
 uint8_t Start(void);
 void Write(uint8_t);
 uint8_t Read(void);

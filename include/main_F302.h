@@ -41,12 +41,10 @@
   /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
-#include "freqAnalysis.h"
-#include "stm32_hal_legacy.h"
+#include "stm32f3xx_hal.h"
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
-
 
 /* USER CODE BEGIN Private defines */
 
