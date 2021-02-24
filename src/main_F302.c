@@ -52,8 +52,6 @@ ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
-TIM_HandleTypeDef htim16;
-//TIM_HandleTypeDef htim15;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
@@ -68,11 +66,10 @@ volatile uint16_t status = 1;
 volatile uint16_t resetLength = 0;
 volatile uint16_t setLength = 0;
 char huart2buffer[30];
-static uint16_t sample_rate = 10000;
 volatile uint8_t motor_enable = 0;
 
 freqAnaliser analiser, anal, anal2;
-
+uint32_t t1 = 0, t0 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,7 +79,6 @@ static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM6_Init(void);
 //static void MX_TIM15_Init(void);
-static void MX_TIM16_Init(void);
 
 static void MX_USART3_UART_Init(void);
 
@@ -129,7 +125,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
   MX_TIM1_Init();
   MX_TIM6_Init();
 	//MX_TIM15_Init();
-	MX_TIM16_Init();
+	//MX_TIM16_Init();
   MX_USART3_UART_Init();
 
   /* USER CODE BEGIN 2 */
@@ -142,12 +138,10 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET); //MOTOR BUS ENABLE
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_TSC_IRQn);
-	//HAL_TIM_Base_Start_IT(&htim15);
-	HAL_TIM_Base_Start_IT(&htim16);
 
 	//init_mask();
 	HAL_GPIO_WritePin(GPIOC, PullUp_Pin, GPIO_PIN_SET);
-	uint32_t t0 = HAL_GetTick();
+	t0 = HAL_GetTick();
 	init_OW();
 	anal = initAnaliser(60./60.);
 	anal2 = initAnaliser(75./60.);
@@ -163,7 +157,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 		
 			int16_t val = run_OW();
 			if (val < 2000){
-				uint32_t t1 = HAL_GetTick();
+				t1 = HAL_GetTick();
 				processSet(&anal, t1 - t0);
 				t0 = t1;
 				HAL_UART_Transmit(&huart3, (uint8_t*)huart2buffer, sprintf(huart2buffer, "filter  = %f\n", getScoreSquare(&anal)), 20);
@@ -450,54 +444,7 @@ static void MX_TIM6_Init(void)
   }
 
 }
-/*TIM15 user init function */
-/*
-static void MX_TIM15_Init(void)
-{
-	TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-	TIM_MasterConfigTypeDef sMasterConfig = {0};
-	
-	htim15.Instance = TIM15;
-	htim15.Init.Prescaler = 71;
-	htim15.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim15.Init.Period = 99;
-	htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim15.Init.RepetitionCounter = 0;
-	htim15.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim15) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-	if (HAL_TIM_ConfigClockSource(&htim15, &sClockSourceConfig) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim15, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-}
-*/
 
-
-/*TIM16 user init function */
-static void MX_TIM16_Init(void)
-{
-	htim16.Instance = TIM16;
-  htim16.Init.Prescaler = 71;
-  htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim16.Init.Period = 99;
-  htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim16.Init.RepetitionCounter = 0;
-  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
-  {
-    Error_Handler();
-  }
-}
 /* USART3 init function */
 static void MX_USART3_UART_Init(void)
 {
