@@ -5,14 +5,24 @@
 #include "freqAnalysis.h"
 #include "stm32f3xx_hal.h"
 
+typedef enum {
+    start,
+    open,
+    close,
+    opening,
+    closing,
+    openListening,
+    closeListening
+} StateEnum;
+
 ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
 UART_HandleTypeDef huart3;
 
-static const float freq1 = 1.008;
-static const float freq2 = 1.4264;
+static const float freqOpen = 1.008;
+static const float freqClose = 1.4264;
 
 /*somehow make first hold through reset state*/
 uint8_t position = 0;  // Current motor position
@@ -25,7 +35,7 @@ volatile uint16_t resetLength = 0;
 volatile uint16_t setLength = 0;
 char huart2buffer[30];
 volatile uint8_t motor_enable = 0;
-freqAnaliser anal1, anal2;
+freqAnaliser analOpen, analClose;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -61,81 +71,138 @@ int main(void) {
     HAL_NVIC_EnableIRQ(EXTI2_TSC_IRQn);
 
     uint32_t t0 = HAL_GetTick();
-    anal1 = initAnaliser(freq1);
-    anal2 = initAnaliser(freq2);
+    analOpen = initAnaliser(freqOpen);
+    analClose = initAnaliser(freqClose);
     init_OW();
 
+    StateEnum state = start;
+
     while (1) {
-        if (motor_enable == 0)  // Motor is OFF, wait for command STATE
-        {
-            int16_t val = run_OW();
-            if ((val < 2000) & (val > 0)) {
-                uint32_t t1 = HAL_GetTick();
-                processSet(&anal1, t1 - t0);
-                processSet(&anal2, t1 - t0);
-                HAL_UART_Transmit(
-                    &huart3, (uint8_t *)huart2buffer,
-                    sprintf(huart2buffer, "dt=%u\n nval=%u\n", t1 - t0, val),
-                    20);
-                t0 = t1;
-                HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
-                                  sprintf(huart2buffer, "filter60  = %f\n",
-                                          getScoreSquare(&anal1)),
-                                  20);
-                HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
-                                  sprintf(huart2buffer, "filter75  = %f\n",
-                                          getScoreSquare(&anal2)),
-                                  20);
-            }
-            if (HAL_GetTick() - t0 > 10000) {
-                t0 = HAL_GetTick();
-                anal1.scoreImag = 0;
-                anal1.scoreReal = 0;
-                anal2.scoreReal = 0;
-                anal2.scoreImag = 0;
-                HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
-                                  sprintf(huart2buffer, "Restarted filters\n"),
-                                  20);
-            }
-            // 	IF command 60./60 and VALVE CLOSED
-            if (getScoreSquare(&anal1) > (100 & position == 1)) {
-                anal1.scoreImag = 0;
-                anal1.scoreReal = 0;
-                anal2.scoreReal = 0;
-                anal2.scoreImag = 0;
-                HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
-                                  GPIO_PIN_SET);  //  ENABLE Motor VCC Bus
-                motor_enable = 1;
-                MC_SixStep_Change_Direction();
-                MC_StartMotor();
-            }
+        switch (state) {
+            case start:
+                state = closing;
+                break;
+            case openListening:
+                if (HAL_GetTick() - t0 > 10000) {
+                    t0 = HAL_GetTick();
+                    anal1.scoreImag = 0;
+                    anal1.scoreReal = 0;
+                    anal2.scoreReal = 0;
+                    anal2.scoreImag = 0;
+                    HAL_UART_Transmit(
+                        &huart3, (uint8_t *)huart2buffer,
+                        sprintf(huart2buffer, "Restarted filters\n"), 20);
+                }
+                int16_t val = run_OW();
+                if ((val < 2000) & (val > 0)) {
+                    uint32_t t1 = HAL_GetTick();
+                    processSet(&anal1, t1 - t0);
+                    processSet(&anal2, t1 - t0);
+                    HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+                                      sprintf(huart2buffer, "dt=%u\n nval=%u\n",
+                                              t1 - t0, val),
+                                      20);
+                    t0 = t1;
+                    HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+                                      sprintf(huart2buffer, "filter60  = %f\n",
+                                              getScoreSquare(&anal1)),
+                                      20);
+                    HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+                                      sprintf(huart2buffer, "filter75  = %f\n",
+                                              getScoreSquare(&anal2)),
+                                      20);
+                }
+            case closeListening:  // TODO separate
+                if (HAL_GetTick() - t0 > 10000) {
+                    t0 = HAL_GetTick();
+                    anal1.scoreImag = 0;
+                    anal1.scoreReal = 0;
+                    anal2.scoreReal = 0;
+                    anal2.scoreImag = 0;
+                    HAL_UART_Transmit(
+                        &huart3, (uint8_t *)huart2buffer,
+                        sprintf(huart2buffer, "Restarted filters\n"), 20);
+                }
+                int16_t val = run_OW();
+                if ((val < 2000) & (val > 0)) {
+                    uint32_t t1 = HAL_GetTick();
+                    processSet(&anal1, t1 - t0);
+                    processSet(&anal2, t1 - t0);
+                    HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+                                      sprintf(huart2buffer, "dt=%u\n nval=%u\n",
+                                              t1 - t0, val),
+                                      20);
+                    t0 = t1;
+                    HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+                                      sprintf(huart2buffer, "filter60  = %f\n",
+                                              getScoreSquare(&anal1)),
+                                      20);
+                    HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+                                      sprintf(huart2buffer, "filter75  = %f\n",
+                                              getScoreSquare(&anal2)),
+                                      20);
+                }
+                if (HAL_GetTick() - t0 > 10000) {
+                    t0 = HAL_GetTick();
+                    anal1.scoreImag = 0;
+                    anal1.scoreReal = 0;
+                    anal2.scoreReal = 0;
+                    anal2.scoreImag = 0;
+                    HAL_UART_Transmit(
+                        &huart3, (uint8_t *)huart2buffer,
+                        sprintf(huart2buffer, "Restarted filters\n"), 20);
+                }
+
+                break;
+                // 	IF command 60./60 and VALVE CLOSED
+            case opening:
+                if (getScoreSquare(&anal1) > (100 & position == 1)) {
+                    anal1.scoreImag = 0;
+                    anal1.scoreReal = 0;
+                    anal2.scoreReal = 0;
+                    anal2.scoreImag = 0;
+                    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
+                                      GPIO_PIN_SET);  //  ENABLE Motor VCC Bus
+                    motor_enable = 1;
+                    MC_SixStep_Change_Direction();
+                    MC_StartMotor();
+                }
             /***********FIRST CALIBRATION STEP********/
             //	IF command 75./60 and VALVE OPENED FIRST STEP
-            else if (getScoreSquare(&anal2) > 100 & position != 1) {
-                anal1.scoreImag = 0;
-                anal1.scoreReal = 0;
-                anal2.scoreReal = 0;
-                anal2.scoreImag = 0;
-                HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
-                                  GPIO_PIN_SET);  //	ENABLE Motor VCC Bus
-                motor_enable = 1;
-                MC_SixStep_Change_Direction();
-                MC_StartMotor();
-            }
-            //	If stall occurs this func re-launch motor
-        } else if (motor_enable == 1) {
-            if (attempt < will) {  //	Not more than "will" - defined
-                                   // re-launches
-                if (MC_MotorState() == 0) {
-                    HAL_Delay(1000);
+            case closing:
+                if (getScoreSquare(&anal2) > 100 & position != 1) {
+                    anal1.scoreImag = 0;
+                    anal1.scoreReal = 0;
+                    anal2.scoreReal = 0;
+                    anal2.scoreImag = 0;
+                    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
+                                      GPIO_PIN_SET);  //	ENABLE Motor VCC Bus
+                    motor_enable = 1;
+                    MC_SixStep_Change_Direction();
                     MC_StartMotor();
-                    attempt++;
-                } else {
-                    __NOP();
                 }
-            } else {
-                MC_StopMotor();
-            }
+                //	If stall occurs this func re-launch motor
+
+                if (motor_enable == 1) {
+                    if (attempt < will) {  //	Not more than "will" - defined
+                                           // re-launches
+                        if (MC_MotorState() == 0) {
+                            HAL_Delay(1000);
+                            MC_StartMotor();
+                            attempt++;
+                        } else {
+                            __NOP();
+                        }
+                    } else {
+                        MC_StopMotor();
+                    }
+                }
+            case open:
+                // TODO add sleep between listens
+                break;
+            case close:
+                // TODO add sleep between listens
+                break;
         }
     }
 }
