@@ -11,6 +11,9 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
 UART_HandleTypeDef huart3;
 
+static const float freq1 = 1.008;
+static const float freq2 = 1.4264;
+
 /*somehow make first hold through reset state*/
 uint8_t position = 0;  // Current motor position
 uint8_t prev_position = 0;
@@ -22,7 +25,7 @@ volatile uint16_t resetLength = 0;
 volatile uint16_t setLength = 0;
 char huart2buffer[30];
 volatile uint8_t motor_enable = 0;
-freqAnaliser anal, anal2;
+freqAnaliser anal1, anal2;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -58,8 +61,8 @@ int main(void) {
     HAL_NVIC_EnableIRQ(EXTI2_TSC_IRQn);
 
     uint32_t t0 = HAL_GetTick();
-    anal = initAnaliser(60. / 60.);
-    anal2 = initAnaliser(75. / 60.);
+    anal1 = initAnaliser(freq1);
+    anal2 = initAnaliser(freq2);
     init_OW();
 
     while (1) {
@@ -68,7 +71,7 @@ int main(void) {
             int16_t val = run_OW();
             if ((val < 2000) & (val > 0)) {
                 uint32_t t1 = HAL_GetTick();
-                processSet(&anal, t1 - t0);
+                processSet(&anal1, t1 - t0);
                 processSet(&anal2, t1 - t0);
                 HAL_UART_Transmit(
                     &huart3, (uint8_t *)huart2buffer,
@@ -77,7 +80,7 @@ int main(void) {
                 t0 = t1;
                 HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
                                   sprintf(huart2buffer, "filter60  = %f\n",
-                                          getScoreSquare(&anal)),
+                                          getScoreSquare(&anal1)),
                                   20);
                 HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
                                   sprintf(huart2buffer, "filter75  = %f\n",
@@ -86,8 +89,8 @@ int main(void) {
             }
             if (HAL_GetTick() - t0 > 10000) {
                 t0 = HAL_GetTick();
-                anal.scoreImag = 0;
-                anal.scoreReal = 0;
+                anal1.scoreImag = 0;
+                anal1.scoreReal = 0;
                 anal2.scoreReal = 0;
                 anal2.scoreImag = 0;
                 HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
@@ -95,9 +98,9 @@ int main(void) {
                                   20);
             }
             // 	IF command 60./60 and VALVE CLOSED
-            if (getScoreSquare(&anal) > (100 & position == 1)) {
-                anal.scoreImag = 0;
-                anal.scoreReal = 0;
+            if (getScoreSquare(&anal1) > (100 & position == 1)) {
+                anal1.scoreImag = 0;
+                anal1.scoreReal = 0;
                 anal2.scoreReal = 0;
                 anal2.scoreImag = 0;
                 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
@@ -109,8 +112,8 @@ int main(void) {
             /***********FIRST CALIBRATION STEP********/
             //	IF command 75./60 and VALVE OPENED FIRST STEP
             else if (getScoreSquare(&anal2) > 100 & position != 1) {
-                anal.scoreImag = 0;
-                anal.scoreReal = 0;
+                anal1.scoreImag = 0;
+                anal1.scoreReal = 0;
                 anal2.scoreReal = 0;
                 anal2.scoreImag = 0;
                 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
