@@ -1,15 +1,61 @@
+/**
+ ******************************************************************************
+ * File Name          : main.c
+ * Description        : Main program body
+ ******************************************************************************
+ ** This notice applies to any and all portions of this file
+ * that are not between comment pairs USER CODE BEGIN and
+ * USER CODE END. Other portions of this file, whether
+ * inserted by the user or by software development tools
+ * are owned by their respective copyright owners.
+ *
+ * COPYRIGHT(c) 2017 STMicroelectronics
+ *
+ * Redistribution and use in source and binary forms, with or without
+ *modification, are permitted provided that the following conditions are met:
+ *   1. Redistriffbutions of source code must retain the above copyright notice,
+ *      this list of conditions and the following disclaimer.
+ *   2. Redistributions in binary form must reproduce the above copyright
+ *notice, this list of conditions and the following disclaimer in the
+ *documentation and/or other materials provided with the distribution.
+ *   3. Neither the name of STMicroelectronics nor the names of its contributors
+ *      may be used to endorse or promote products derived from this software
+ *      without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ *LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *POSSIBILITY OF SUCH DAMAGE.
+ *
+ ******************************************************************************
+ */
+/* Includes ------------------------------------------------------------------*/
 #include "main_F302.h"
 
-#include "6Step_Lib.h"
-#include "OneWire.h"
 #include "freqAnalysis.h"
 #include "stm32f3xx_hal.h"
 
+/* USER CODE BEGIN Includes */
+#include "6Step_Lib.h"
+#include "OneWire_Hi4Tech.h"
+/* USER CODE END Includes */
+
+/* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
 UART_HandleTypeDef huart3;
+
+/* USER CODE BEGIN PV */
+/* Private variables ---------------------------------------------------------*/
 
 /*somehow make first hold through reset state*/
 uint8_t position = 0;  // Current motor position
@@ -24,6 +70,8 @@ char huart2buffer[30];
 volatile uint8_t motor_enable = 0;
 freqAnaliser anal, anal2;
 
+/* USER CODE END PV */
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -35,13 +83,36 @@ static void MX_USART3_UART_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
+/* USER CODE BEGIN PFP */
+/* Private function prototypes -----------------------------------------------*/
+
+/* USER CODE END PFP */
+
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
 int main(void) {
+    /* USER CODE BEGIN 1 */
+    /* USER CODE END 1 */
+
+    /* MCU
+     * Configuration----------------------------------------------------------*/
+
     /* Reset of all peripherals, Initializes the Flash interface and the
      * Systick. */
     HAL_Init();
 
+    /* USER CODE BEGIN Init */
+
+    /* USER CODE END Init */
+
     /* Configure the system clock */
     SystemClock_Config();
+
+    /* USER CODE BEGIN SysInit */
+
+    /* USER CODE END SysInit */
 
     /* Initialize all configured peripherals */
     MX_GPIO_Init();
@@ -51,9 +122,15 @@ int main(void) {
 
     MX_USART3_UART_Init();
 
+    /* USER CODE BEGIN 2 */
+    /* ****************************************************************************
+     ==============================================================================
+               ###### This function initializes 6-Step lib ######
+     ==============================================================================
+     ****************************************************************************
+   */
     MC_SixStep_INIT();
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
-                      GPIO_PIN_RESET);  // DISABLE Motor VCC Bus
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);			//DISABLE Motor VCC Bus
     HAL_NVIC_EnableIRQ(EXTI1_IRQn);
     HAL_NVIC_EnableIRQ(EXTI2_TSC_IRQn);
 
@@ -62,79 +139,88 @@ int main(void) {
     anal2 = initAnaliser(75. / 60.);
     init_OW();
 
+    /* USER CODE END 2 */
+
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
     while (1) {
-        if (motor_enable == 0)  // Motor is OFF, wait for command STATE
-        {
-            int16_t val = run_OW();
-            if ((val < 2000) & (val > 0)) {
-                uint32_t t1 = HAL_GetTick();
-                processSet(&anal, t1 - t0);
-                processSet(&anal2, t1 - t0);
-                HAL_UART_Transmit(
-                    &huart3, (uint8_t *)huart2buffer,
-                    sprintf(huart2buffer, "dt=%u\n nval=%u\n", t1 - t0, val),
-                    20);
-                t0 = t1;
-                HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
-                                  sprintf(huart2buffer, "filter60  = %f\n",
-                                          getScoreSquare(&anal)),
-                                  20);
-                HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
-                                  sprintf(huart2buffer, "filter75  = %f\n",
-                                          getScoreSquare(&anal2)),
-                                  20);
-            }
-            if (HAL_GetTick() - t0 > 10000) {
-                t0 = HAL_GetTick();
-                anal.scoreImag = 0;
-                anal.scoreReal = 0;
-                anal2.scoreReal = 0;
-                anal2.scoreImag = 0;
-                HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
-                                  sprintf(huart2buffer, "Restarted filters\n"),
-                                  20);
-            }
-            // 	IF command 60./60 and VALVE CLOSED
-            if (getScoreSquare(&anal) > (100 & position == 1)) {
-                anal.scoreImag = 0;
-                anal.scoreReal = 0;
-                anal2.scoreReal = 0;
-                anal2.scoreImag = 0;
-                HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
-                                  GPIO_PIN_SET);  //  ENABLE Motor VCC Bus
-                motor_enable = 1;
-                MC_SixStep_Change_Direction();
-                MC_StartMotor();
-            }
-            /***********FIRST CALIBRATION STEP********/
-            //	IF command 75./60 and VALVE OPENED FIRST STEP
-            else if (getScoreSquare(&anal2) > 100 & position != 1) {
-                anal.scoreImag = 0;
-                anal.scoreReal = 0;
-                anal2.scoreReal = 0;
-                anal2.scoreImag = 0;
-                HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8,
-                                  GPIO_PIN_SET);  //	ENABLE Motor VCC Bus
-                motor_enable = 1;
-                MC_SixStep_Change_Direction();
-                MC_StartMotor();
-            }
-            //	If stall occurs this func re-launch motor
-        } else if (motor_enable == 1) {
-            if (attempt < will) {  //	Not more than "will" - defined
-                                   // re-launches
-                if (MC_MotorState() == 0) {
-                    HAL_Delay(1000);
-                    MC_StartMotor();
-                    attempt++;
-                } else {
-                    __NOP();
-                }
-            } else {
-                MC_StopMotor();
-            }
-        }
+        if(motor_enable == 0)				// Motor is OFF, wait for command STATE
+				{		
+					int16_t val = run_OW();
+					if (val<2000 & val> 0) {
+							uint32_t t1 = HAL_GetTick();
+							processSet(&anal, t1 - t0);
+							processSet(&anal2, t1 - t0);
+							HAL_UART_Transmit(
+									&huart3, (uint8_t *)huart2buffer,
+									sprintf(huart2buffer, "dt=%u\n nval=%u\n", t1 - t0, val), 20);
+							t0 = t1;
+							HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+																sprintf(huart2buffer, "filter60  = %f\n",
+																				getScoreSquare(&anal)),
+																20);
+							HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+																sprintf(huart2buffer, "filter75  = %f\n",
+																				getScoreSquare(&anal2)),
+																20);
+					}
+					if (HAL_GetTick() - t0 > 0xff00) {
+							t0 = HAL_GetTick();
+							anal.scoreImag = 0;
+							anal.scoreReal = 0;
+							anal2.scoreReal = 0;
+							anal2.scoreImag = 0;
+							HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
+																sprintf(huart2buffer, "Restarted filters\n"),
+																20);
+					}
+					if(getScoreSquare(&anal) > 100 & position == 1) 			 // 	IF command 60./60 and VALVE CLOSED
+						{
+							anal.scoreImag = 0;
+							anal.scoreReal = 0;
+							anal2.scoreReal = 0;
+							anal2.scoreImag = 0;
+							HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET); //  ENABLE Motor VCC Bus
+							motor_enable = 1;
+							MC_SixStep_Change_Direction();
+							MC_StartMotor();				
+						}
+					/***********FIRST CALIBRATION STEP********/
+					else if(getScoreSquare(&anal2) > 100 & position != 1)  	//	IF command 75./60 and VALVE OPENED FIRST STEP
+						{
+							anal.scoreImag = 0;
+							anal.scoreReal = 0;
+							anal2.scoreReal = 0;
+							anal2.scoreImag = 0;
+							HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET); //	ENABLE Motor VCC Bus
+							motor_enable = 1;
+							MC_SixStep_Change_Direction();
+							MC_StartMotor();						
+						}	
+			} else if (motor_enable == 1){							//	If stall occurs this func re-launch motor
+				if (attempt < will){											//	Not more than "will" - defined re-launches
+					if (MC_MotorState() == 0){
+						HAL_Delay(1000);
+						MC_StartMotor();
+						attempt++;
+					} else {
+						__NOP();
+					}
+				} else {
+					MC_StopMotor();
+				}
+			}
+
+        /* USER CODE END WHILE */
+
+        /* USER CODE BEGIN 3 */
+				
+        /*!
+          **************************************************************************
+          The MC_SixStep_param.h contains the full list of MC parameters
+          *****************************************************************************/        
     }
+    /* USER CODE END 3 */
 }
 
 /** System Clock Configuration
@@ -420,19 +506,20 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         position = 1;
         attempt = 0;
         MC_StopMotor();
-        motor_enable = 0;
-        HAL_Delay(500);
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
-
+				motor_enable = 0;
+			  HAL_Delay(500);
+				HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
+				
     } else if (GPIO_Pin == GPIO_PIN_2) {
         HAL_UART_Transmit(&huart3, (uint8_t *)huart2buffer,
                           sprintf(huart2buffer, "Stop Motor pos 2\n"), 200);
         position = 2;
         attempt = 0;
         MC_StopMotor();
-        motor_enable = 0;
+				motor_enable = 0;
         HAL_Delay(500);
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
+				
     }
 }
 
@@ -441,6 +528,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         MC_TIMx_SixStep_timebase();
     }
 }
+/* USER CODE END 4 */
 
 /**
  * @brief  This function is executed in case of error occurrence.
@@ -483,3 +571,5 @@ void assert_failed(uint8_t *file, uint32_t line) {
 /**
  * @}
  */
+
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
