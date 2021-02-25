@@ -42,7 +42,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "6Step_Lib.h"
-#include "OneWire_Hi4Tech.h"
+#include "OneWire.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/

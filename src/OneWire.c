@@ -3,7 +3,7 @@
 #include "main_F302.h"
 #include "stdio.h"
 //#include "delay_micros.h"
-#include "OneWire_Hi4Tech.h"
+#include "OneWire.h"
 extern TIM_HandleTypeDef htim6;
 extern UART_HandleTypeDef huart3;
 
