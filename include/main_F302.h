@@ -41,7 +41,7 @@
   /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
-#include "stm32f3xx_hal.h"
+#include "freqAnalysis.h"
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
